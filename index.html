@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athaya Manajemen Tahfizh</title>
+    
+    <!-- Memuat Font Nunito secara Native agar menembus batasan iFrame Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide Icons Premium (Versi Vanilla JS - Sangat Stabil di Google Apps Script) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body, div, span, p, h1, h2, h3, h4, h5, h6, input, select, button, textarea {
+            font-family: 'Nunito', sans-serif !important;
+        }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 25s linear infinite; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // KOMPONEN RENDER ICON VANILLA LUCIDE
+        // (Solusi Anti-Crash dan Anti-Error)
+        // ==========================================
+        const IconWrapper = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    // Konversi nama PascalCase ke kebab-case yang dibutuhkan Lucide
+                    const kebabName = name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+                    
+                    // Menyisipkan elemen <i> sementara untuk digantikan menjadi <svg> oleh lucide
+                    iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
+                    
+                    window.lucide.createIcons({
+                        icons: window.lucide.icons,
+                        attrs: {
+                            class: className,
+                            width: size,
+                            height: size,
+                            stroke: "currentColor",
+                            "stroke-width": "2",
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round"
+                        },
+                        root: iconRef.current
+                    });
+                }
+            }, [name, size, className]);
+
+            return <span ref={iconRef} className="inline-flex items-center justify-center"></span>;
+        };
+
+        // Pemetaan Icon agar tetap bekerja seperti Komponen React biasa
+        const BookOpen = (p) => <IconWrapper name="BookOpen" {...p} />;
+        const User = (p) => <IconWrapper name="User" {...p} />;
+        const LogOut = (p) => <IconWrapper name="LogOut" {...p} />;
+        const CheckCircle = (p) => <IconWrapper name="CheckCircle" {...p} />;
+        const Download = (p) => <IconWrapper name="Download" {...p} />;
+        const Clock = (p) => <IconWrapper name="Clock" {...p} />;
+        const BarChart = (p) => <IconWrapper name="BarChart" {...p} />;
+        const Save = (p) => <IconWrapper name="Save" {...p} />;
+        const Bell = (p) => <IconWrapper name="Bell" {...p} />;
+        const Home = (p) => <IconWrapper name="Home" {...p} />;
+        const FileText = (p) => <IconWrapper name="FileText" {...p} />;
+        const Lock = (p) => <IconWrapper name="Lock" {...p} />;
+        const Settings = (p) => <IconWrapper name="Settings" {...p} />;
+        const Plus = (p) => <IconWrapper name="Plus" {...p} />;
+        const Edit = (p) => <IconWrapper name="Edit" {...p} />;
+        const Trash2 = (p) => <IconWrapper name="Trash2" {...p} />;
+        const Database = (p) => <IconWrapper name="Database" {...p} />;
+        const X = (p) => <IconWrapper name="X" {...p} />;
+        const TrendingUp = (p) => <IconWrapper name="TrendingUp" {...p} />;
+        const Award = (p) => <IconWrapper name="Award" {...p} />;
+        const AlertCircle = (p) => <IconWrapper name="AlertCircle" {...p} />;
+        const Camera = (p) => <IconWrapper name="Camera" {...p} />;
+        const Upload = (p) => <IconWrapper name="Upload" {...p} />;
+        const ImageIcon = (p) => <IconWrapper name="Image" {...p} />;
+        const GraduationCap = (p) => <IconWrapper name="GraduationCap" {...p} />;
+        const MapPin = (p) => <IconWrapper name="MapPin" {...p} />;
+        const Users = (p) => <IconWrapper name="Users" {...p} />;
+
+        // --- MOCK DATA FALLBACK (Akan terganti oleh Database Google Sheets) ---
+        const MOCK_SANTRI = [
+          { id: 'S001', nama: 'Ahmad Hanif', kelas: '7', halaqoh: 'Ibnu Abbas', targetHarian: 0.5 },
+          { id: 'S002', nama: 'Budi Santoso', kelas: '8', halaqoh: 'Ruqqayah', targetHarian: 1.0 }
+        ];
+
+        // --- LOGO COMPONENT ---
+        const AthayaLogo = ({ size = 60 }) => (
+          <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <path d="M50 15 L85 35 V75 A 10 10 0 0 1 75 85 H65 V55 A 15 15 0 0 0 35 55 V85 H25 A 10 10 0 0 1 15 75 V35 L50 15Z" fill="url(#paint0_linear)"/>
+            <circle cx="50" cy="45" r="12" fill="url(#paint1_linear)"/>
+            <defs>
+              <linearGradient id="paint0_linear" x1="50" y1="15" x2="50" y2="85" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#F59E0B" />
+                <stop offset="1" stopColor="#EF4444" />
+              </linearGradient>
+              <linearGradient id="paint1_linear" x1="50" y1="33" x2="50" y2="57" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#FCD34D" />
+                <stop offset="1" stopColor="#F59E0B" />
+              </linearGradient>
+            </defs>
+          </svg>
+        );
+
+        // --- MODAL COMPONENT ---
+        const Modal = ({ title, onClose, children }) => (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 className="font-extrabold text-slate-800 text-lg">{title}</h3>
+                <button type="button" onClick={onClose} className="text-gray-400 hover:text-red-500 transition bg-white p-2 rounded-full shadow-sm"><X size={18} /></button>
+              </div>
+              <div className="p-6 overflow-y-auto hide-scrollbar">
+                {children}
+              </div>
+            </div>
+          </div>
+        );
+
+        // Helper Analytics
+        const getCapaianJuz = (santriId, logs) => {
+          const ziyadahLogs = logs.filter(l => l.santriId === santriId && l.tipe === 'Ziyadah' && l.status === 'Maqbul');
+          const totalHalaman = ziyadahLogs.reduce((sum, log) => sum + (parseFloat(log.halaman) || 0), 0);
+          return totalHalaman / 20; 
+        };
+
+        // ==========================================
+        // APLIKASI UTAMA (APP COMPONENT)
+        // ==========================================
+        function App() {
+          const [isLoggedIn, setIsLoggedIn] = useState(false);
+          const [role, setRole] = useState(null); 
+          const [activeTab, setActiveTab] = useState('home');
+          const [toastMessage, setToastMessage] = useState('');
+          
+          // States Data
+          const [santriList, setSantriList] = useState(MOCK_SANTRI);
+          const [halaqohList, setHalaqohList] = useState([]);
+          const [logsList, setLogsList] = useState([]);
+          const [absensiLogs, setAbsensiLogs] = useState([]);
+          const [absensiSessions, setAbsensiSessions] = useState([
+              { id: 'S1', kode: 'H1', nama: 'Halaqoh 1 Subuh' },
+              { id: 'S2', kode: 'H2', nama: 'Halaqoh 2 Ashar' }
+          ]);
+          const [marqueeText, setMarqueeText] = useState('🌟 "Sebaik-baik kalian adalah yang belajar Al-Quran dan mengajarkannya." | 📢 Pendaftaran Tasmi\' dibuka.');
+
+          const [performLabels, setPerformLabels] = useState({ tinggi: 'Melampaui Target', sedang: 'Mencapai Target', rendah: 'Belum Tercapai' });
+          const [guruGreeting, setGuruGreeting] = useState('Ahlan, Ustaz/ah!');
+          const [guruPrayer, setGuruPrayer] = useState('Semoga Allah memberkahi waktu Anda hari ini.');
+
+          const [username, setUsername] = useState('');
+          const [password, setPassword] = useState('');
+          const [loginError, setLoginError] = useState('');
+
+          // ------------------------------------------
+          // INTEGRASI GOOGLE APPS SCRIPT
+          // ------------------------------------------
+          const loadDataFromGoogleSheets = () => {
+            if (typeof google !== 'undefined' && google.script) {
+              google.script.run.withSuccessHandler((result) => {
+                if(result.status === "success") {
+                  if(result.santri?.length) setSantriList(result.santri.map(s => ({id: s.Santri_ID, nama: s.Nama, kelas: s.Kelas, halaqoh: s.Halaqoh, targetHarian: parseFloat(s.Target_Harian)})));
+                  if(result.tahfizh?.length) setLogsList(result.tahfizh.map(l => ({id: l.Log_ID, santriId: l.Santri_ID, tanggal: l.Tanggal, tipe: l.Tipe, detail: l.Detail, halaman: parseFloat(l.Halaman), status: l.Status, evaluasi: l.Evaluasi})));
+                  if(result.absensi?.length) setAbsensiLogs(result.absensi.map(a => ({id: a.Absen_ID, santriId: a.Santri_ID, tanggal: a.Tanggal, status: a.Status, detail: a.Detail, note: a.Note})));
+                }
+              }).getAppData();
+            }
+          };
+
+          const handleLoginSubmit = (e) => {
+            e.preventDefault();
+            const uname = username.toLowerCase();
+
+            // Login Hardcode Sentralisasi (Tidak ambil user/pass dari master data)
+            if (uname === 'wali' && password === '12345') { setRole('wali'); setIsLoggedIn(true); setLoginError(''); loadDataFromGoogleSheets(); }
+            else if (uname === 'guru' && password === '12345') { setRole('guru'); setIsLoggedIn(true); setLoginError(''); loadDataFromGoogleSheets(); }
+            else if (uname === 'admin' && password === 'admin123') { setRole('admin'); setIsLoggedIn(true); setLoginError(''); loadDataFromGoogleSheets(); }
+            else { setLoginError('Username atau password tidak valid.'); }
+            setUsername(''); setPassword('');
+          };
+
+          const handleLogout = () => {
+            setIsLoggedIn(false); setRole(null); setActiveTab('home'); setUsername(''); setPassword('');
+            showToast('Berhasil keluar dari sistem.');
+          };
+
+          const showToast = (msg) => {
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(''), 3000);
+          };
+
+          const addLog = (log) => {
+            const newLog = { id: Date.now(), tanggal: new Date().toISOString().split('T')[0], ...log };
+            setLogsList([newLog, ...logsList]);
+            // Simpan ke Google Sheets
+            if (typeof google !== 'undefined' && google.script) {
+               google.script.run.saveTahfizh(newLog);
+            }
+          };
+
+          const addAbsen = (absen) => {
+            const newAbsen = { id: Date.now(), tanggal: new Date().toISOString().split('T')[0], ...absen };
+            setAbsensiLogs([newAbsen, ...absensiLogs]);
+            // Simpan ke Google Sheets
+            if (typeof google !== 'undefined' && google.script) {
+               google.script.run.saveAbsensi(newAbsen);
+            }
+          };
+
+          if (!isLoggedIn) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500 rounded-full mix-blend-overlay filter blur-[120px] opacity-40 animate-pulse"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-500 rounded-full mix-blend-overlay filter blur-[120px] opacity-40 animate-pulse" style={{ animationDelay: '1s'}}></div>
+
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl shadow-2xl w-full max-w-md text-center relative z-10 transition-all">
+                  <div className="flex flex-col items-center justify-center gap-4 mb-8">
+                    <div className="bg-white p-3 rounded-2xl shadow-lg">
+                      <AthayaLogo size={65} />
+                    </div>
+                    <div className="text-center mt-2">
+                      <h1 className="text-3xl font-extrabold text-white leading-none tracking-tight">Athaya Tahfizh</h1>
+                      <h2 className="text-xs font-bold text-emerald-300 mt-2 uppercase tracking-widest">Sistem Manajemen</h2>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-5">
+                    {loginError && (
+                      <div className="bg-red-500/20 border border-red-500/50 text-red-200 text-xs py-2 px-3 rounded-xl text-left flex items-center gap-2">
+                        <AlertCircle size={14} className="text-red-400 shrink-0" /> {loginError}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User size={18} className="text-white/50" /></div>
+                      <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition font-medium" required />
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={18} className="text-white/50" /></div>
+                      <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition font-medium" required />
+                    </div>
+                    <button type="submit" className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl font-bold tracking-wide shadow-lg shadow-emerald-500/30 transition-all transform hover:-translate-y-0.5">
+                      MASUK
+                    </button>
+                  </form>
+                </div>
+              </div>
+            );
+          }
+
+          const navItems = [
+            { id: 'home', icon: <Home size={20} />, label: 'Beranda', roles: ['wali', 'guru', 'admin'] },
+            { id: 'stats', icon: <BarChart size={20} />, label: 'Analytics', roles: ['wali', 'guru', 'admin'] },
+            { id: 'laporan', icon: <FileText size={20} />, label: 'Laporan', roles: ['wali'] },
+            { id: 'data', icon: <Database size={20} />, label: 'Data', roles: ['guru', 'admin'] },
+            { id: 'alumni', icon: <GraduationCap size={20} />, label: 'Alumni', roles: ['admin', 'guru'] },
+            { id: 'profil', icon: <User size={20} />, label: 'Profil', roles: ['wali', 'guru', 'admin'] }
+          ].filter(item => item.roles.includes(role));
+
+          return (
+            <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800">
+              {/* DESKTOP SIDEBAR */}
+              <div className="hidden md:flex w-72 bg-slate-900 text-white flex-col shadow-2xl z-20">
+                <div className="p-6 flex items-center gap-4 bg-slate-950/50">
+                  <AthayaLogo size={42} />
+                  <div className="flex flex-col">
+                    <h1 className="font-extrabold text-white text-xl leading-none">Athaya Tahfizh</h1>
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest leading-none mt-1.5">{role}</span>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2 hide-scrollbar">
+                  {navItems.map(item => (
+                    <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === item.id ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg' : 'text-slate-300 hover:bg-slate-800'}`}>
+                      {item.icon} {item.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="p-6">
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all font-semibold">
+                    <LogOut size={18} /> Keluar
+                  </button>
+                </div>
+              </div>
+
+              {/* MAIN CONTENT AREA */}
+              <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                <header className="bg-white shadow-sm z-10 relative">
+                  <div className="flex justify-between items-center p-4 md:px-8 border-b border-gray-100">
+                    <div className="flex items-center gap-4">
+                      <AthayaLogo size={45} />
+                      <div className="flex flex-col justify-center">
+                        <h1 className="font-extrabold text-[#1e293b] text-xl md:text-2xl leading-none tracking-tight">Athaya Tahfizh</h1>
+                        <span className="text-[10px] md:text-xs text-[#059669] font-extrabold uppercase tracking-widest mt-1.5">{role}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <button onClick={handleLogout} className="p-2.5 text-slate-400 bg-slate-50 rounded-full hover:bg-red-50 hover:text-red-600 transition-colors md:hidden"><LogOut size={20} /></button>
+                    </div>
+                  </div>
+                  <div className="bg-[#065f46] text-emerald-50 overflow-hidden flex items-center h-10">
+                    <span className="font-extrabold px-4 md:px-8 shrink-0 bg-[#044e3a] h-full flex items-center z-10 shadow-lg text-[10px] md:text-xs uppercase tracking-widest text-[#6ee7b7]">
+                      PAPAN INFO
+                    </span>
+                    <div className="flex-1 overflow-hidden relative h-full flex items-center">
+                      <div className="animate-marquee absolute whitespace-nowrap text-xs md:text-sm font-medium">{marqueeText}</div>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 hide-scrollbar bg-slate-50">
+                  <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+                    {activeTab === 'home' && role === 'wali' && <WaliDashboard santri={santriList[0]} logsList={logsList} santriList={santriList} performLabels={performLabels} absensiLogs={absensiLogs} />}
+                    {activeTab === 'home' && role === 'guru' && <GuruDashboard showToast={showToast} santriList={santriList} logsList={logsList} setLogsList={setLogsList} addLog={addLog} addAbsen={addAbsen} greeting={guruGreeting} prayer={guruPrayer} absensiSessions={absensiSessions} absensiLogs={absensiLogs} setAbsensiLogs={setAbsensiLogs} />}
+                    {activeTab === 'home' && role === 'admin' && <AdminDashboard santriList={santriList} logsList={logsList} performLabels={performLabels} setPerformLabels={setPerformLabels} />}
+                    
+                    {activeTab === 'stats' && <StatsDashboard role={role} logsList={logsList} absensiLogs={absensiLogs} santri={santriList[0]} performLabels={performLabels} />}
+                    {activeTab === 'laporan' && role === 'wali' && <LaporanWali logsList={logsList.filter(l => l.santriId === (santriList[0]?.id || ''))} />}
+                    
+                    {activeTab === 'data' && ['guru', 'admin'].includes(role) && (
+                      <DataManagement 
+                        role={role} showToast={showToast} 
+                        marqueeText={marqueeText} setMarqueeText={setMarqueeText}
+                        santriList={santriList} setSantriList={setSantriList} 
+                        halaqohList={halaqohList} setHalaqohList={setHalaqohList}
+                        musyrifList={musyrifList} setMusyrifList={setMusyrifList}
+                        absensiSessions={absensiSessions} setAbsensiSessions={setAbsensiSessions}
+                      />
+                    )}
+
+                    {activeTab === 'alumni' && ['guru', 'admin'].includes(role) && (
+                      <AlumniDashboard role={role} alumniList={alumniList} setAlumniList={setAlumniList} showToast={showToast} />
+                    )}
+                    
+                    {activeTab === 'profil' && (
+                      <ProfilScreen role={role} showToast={showToast} />
+                    )}
+                  </div>
+                </div>
+
+                {/* MOBILE BOTTOM NAV */}
+                <div className="md:hidden absolute bottom-0 w-full bg-white border-t border-gray-100 flex justify-around p-2 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-20">
+                  {navItems.map(item => (
+                    <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center p-2 min-w-[64px] transition-all ${activeTab === item.id ? 'text-emerald-600 transform -translate-y-1' : 'text-slate-400'}`}>
+                      <div className={`mb-1 ${activeTab === item.id ? 'bg-emerald-50 p-1.5 rounded-full' : ''}`}><IconWrapper name={item.icon.props.name} size={20} /></div>
+                      <span className="text-[10px] font-bold">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {toastMessage && (
+                  <div className="absolute top-32 left-1/2 transform -translate-x-1/2 bg-slate-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-full shadow-2xl z-50 text-sm font-medium flex items-center gap-3 animate-in slide-in-from-top-4">
+                    <CheckCircle size={18} className="text-emerald-400" /> {toastMessage}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // ==========================================
+        // KOMPONEN DASHBOARD & VIEW
+        // ==========================================
+        function WaliDashboard({ santri, logsList, santriList, performLabels, absensiLogs }) {
+          if (!santri) return <div className="p-8 text-center text-slate-500 bg-white rounded-3xl">Tunggu proses sinkronisasi database...</div>;
+          
+          const capaianJuz = getCapaianJuz(santri.id, logsList);
+          const targetTahunanProgress = Math.min((capaianJuz / 5) * 100, 100).toFixed(1);
+
+          const temanSekelas = santriList.filter(s => s.kelas === santri.kelas);
+          let melampaui = 0, mencapai = 0, belum = 0;
+          temanSekelas.forEach(s => {
+            const c = getCapaianJuz(s.id, logsList);
+            if (c > 5) melampaui++;
+            else if (c >= 5) mencapai++;
+            else belum++;
+          });
+          const tTotal = temanSekelas.length || 1;
+          const pMel = Math.round((melampaui / tTotal) * 100);
+          const pMen = Math.round((mencapai / tTotal) * 100);
+          const pBel = Math.round((belum / tTotal) * 100);
+
+          const totalHadir = (absensiLogs || []).filter(l => l.santriId === santri.id && l.status.includes('Hadir')).length;
+          const targetPekan = 17;
+          const targetBulan = 68;
+          const targetSemester = 408;
+
+          const persenPekan = totalHadir > 0 ? Math.min((totalHadir / targetPekan) * 100, 100) : 0;
+          const persenBulan = totalHadir > 0 ? Math.min((totalHadir / targetBulan) * 100, 100) : 0;
+          const persenSemester = totalHadir > 0 ? Math.min((totalHadir / targetSemester) * 100, 100) : 0;
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-gradient-to-br from-emerald-700 to-teal-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+                  <BookOpen size={150} className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-4 -translate-y-4" />
+                  <div className="flex items-center gap-5 mb-8 relative z-10">
+                    <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl border border-white/30 overflow-hidden shrink-0">👦</div>
+                    <div>
+                      <p className="text-emerald-200 text-sm font-semibold uppercase tracking-wider mb-1">Profil Ananda</p>
+                      <h2 className="text-2xl md:text-3xl font-extrabold">{santri.nama}</h2>
+                      <p className="text-emerald-100 font-medium mt-1 bg-black/20 inline-block px-3 py-1 rounded-full text-xs">Kls {santri.kelas} • {santri.halaqoh}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
+                    <div className="flex justify-between items-end mb-3">
+                      <div>
+                        <p className="text-sm text-emerald-100 font-medium uppercase tracking-widest mb-1 flex items-center gap-2"><Award size={16} /> Target 1 Tahun (Kls {santri.kelas})</p>
+                        <p className="text-3xl font-bold">{capaianJuz.toFixed(2)} <span className="text-lg font-normal text-emerald-200">/ 5 Juz</span></p>
+                      </div>
+                      <p className="text-4xl font-extrabold text-emerald-300">{targetTahunanProgress}%</p>
+                    </div>
+                    <div className="w-full bg-black/30 rounded-full h-3 overflow-hidden">
+                      <div className="bg-gradient-to-r from-emerald-300 to-emerald-400 h-full rounded-full transition-all duration-1000" style={{ width: `${targetTahunanProgress}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="p-4 rounded-2xl bg-orange-100 text-orange-600"><Clock size={32} /></div>
+                    <div>
+                      <p className="text-sm text-slate-500 font-semibold uppercase tracking-wider mb-1">Status Hari Ini</p>
+                      <p className="text-xl font-bold text-slate-800">{logsList.filter(l => l.santriId === santri.id && l.tanggal === new Date().toISOString().split('T')[0]).length > 0 ? 'Sudah Setoran 🎉' : 'Menunggu Setoran'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right bg-slate-50 p-4 rounded-2xl border border-gray-100">
+                    <p className="text-3xl font-extrabold text-emerald-600">{logsList.filter(l => l.santriId === santri.id && l.tanggal === new Date().toISOString().split('T')[0]).reduce((acc, l) => acc + (parseFloat(l.halaman) || 0), 0)}</p>
+                    <p className="text-xs text-slate-500 font-medium">dari target {santri.targetHarian} Hal</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg"><TrendingUp size={20} className="text-emerald-500"/> Progress Lulus (15 Juz)</h3>
+                  <div className="relative pt-2">
+                    <div className="flex mb-3 items-center justify-between text-sm text-slate-500 font-bold">
+                      <span>0 Juz</span>
+                      <span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{Math.min(Math.round((capaianJuz / 15) * 100), 100)}% Selesai</span>
+                      <span>15 Juz</span>
+                    </div>
+                    <div className="overflow-hidden h-4 flex rounded-full bg-slate-100 border border-gray-200 shadow-inner">
+                      <div style={{ width: `${Math.min((capaianJuz / 15) * 100, 100)}%` }} className="bg-emerald-500 rounded-full transition-all duration-1000"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg"><Users size={20} className="text-blue-500"/> Performa Angkatan</h3>
+                  <p className="text-xs text-slate-500 mb-5">Statistik pencapaian target seluruh santri Kelas {santri.kelas} (Total: {tTotal} Anak).</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5"><span>{performLabels.tinggi}</span><span className="text-blue-600">{pMel}% ({melampaui} Anak)</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div className="bg-blue-500 h-full rounded-full transition-all duration-1000" style={{width: `${pMel}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5"><span>{performLabels.sedang}</span><span className="text-emerald-600">{pMen}% ({mencapai} Anak)</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{width: `${pMen}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5"><span>{performLabels.rendah}</span><span className="text-orange-500">{pBel}% ({belum} Anak)</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div className="bg-orange-400 h-full rounded-full transition-all duration-1000" style={{width: `${pBel}%`}}></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6 lg:col-span-3">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg"><AlertCircle size={20} className="text-emerald-500"/> Kehadiran Halaqoh</h3>
+                  <p className="text-xs text-slate-500 mb-5">Rekapitulasi kehadiran ananda berdasarkan absensi harian musyrif/ah.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                        <span>Pekan Ini</span>
+                        <span className="text-emerald-600">{totalHadir} / {targetPekan} Sesi</span>
+                      </div>
+                      <p className="text-2xl font-black text-slate-800 mb-2">{Math.round(persenPekan)}%</p>
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${persenPekan}%` }}></div>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                        <span>Bulan Ini</span>
+                        <span className="text-emerald-600">{totalHadir} / {targetBulan} Sesi</span>
+                      </div>
+                      <p className="text-2xl font-black text-slate-800 mb-2">{Math.round(persenBulan)}%</p>
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${persenBulan}%` }}></div>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                        <span>Semester Ini</span>
+                        <span className="text-blue-600">{totalHadir} / {targetSemester} Sesi</span>
+                      </div>
+                      <p className="text-2xl font-black text-slate-800 mb-2">{Math.round(persenSemester)}%</p>
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div className="bg-blue-500 h-full rounded-full transition-all duration-1000" style={{ width: `${persenSemester}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function GuruDashboard({ showToast, santriList, logsList, setLogsList, addLog, addAbsen, greeting, prayer, absensiSessions, absensiLogs, setAbsensiLogs }) {
+          const [activeForm, setActiveForm] = useState('setoran'); 
+          const [modalConfig, setModalConfig] = useState(null);
+          
+          const [form, setForm] = useState({ 
+            santriId: santriList[0]?.id || '', 
+            periode: 'Harian', tipe: 'Ziyadah', juz: '1', detail: '', evaluasi: '', status: 'Maqbul', halaman: '', marhalah: '5'
+          });
+
+          const [absenForm, setAbsenForm] = useState({ santriId: santriList[0]?.id || '', sessionId: absensiSessions?.[0]?.id || '', status: 'Hadir', note: '' });
+
+          const handleSubmitSetoran = (e) => {
+            e.preventDefault();
+            let detailTeks = form.tipe === 'Ujian Marhalah' ? `Ujian Marhalah ${form.marhalah} Juz (${form.periode})` : form.tipe === 'Juziyyah' ? `Ujian Juziyyah Juz ${form.juz} (${form.periode})` : `Juz ${form.juz} / ${form.detail} (${form.periode})`;
+
+            addLog({ santriId: form.santriId, tipe: form.tipe, detail: detailTeks, halaman: ['Ziyadah', 'Murajaah'].includes(form.tipe) ? parseFloat(form.halaman) : 0, status: form.status, evaluasi: form.evaluasi });
+            showToast(`Setoran ${form.periode} berhasil disimpan!`);
+            setForm({...form, detail: '', evaluasi: '', halaman: ''}); 
+          };
+
+          const handleSubmitAbsensi = (e) => {
+            e.preventDefault();
+            const session = absensiSessions.find(s => s.id === absenForm.sessionId);
+            addAbsen({ santriId: absenForm.santriId, status: absenForm.status, detail: `Absensi ${session?.kode || ''} (${session?.nama || ''})`, note: absenForm.note });
+            showToast(`Absensi santri berhasil disimpan!`);
+            setAbsenForm({...absenForm, note: ''});
+          };
+
+          const handleEditSetoran = (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            setLogsList(logsList.map(l => l.id === modalConfig.payload.id ? { ...l, ...data, halaman: parseFloat(data.halaman || 0) } : l));
+            setModalConfig(null);
+            showToast("Data setoran berhasil diperbarui!");
+          };
+
+          const handleEditAbsensi = (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            setAbsensiLogs(absensiLogs.map(l => l.id === modalConfig.payload.id ? { ...l, ...data } : l));
+            setModalConfig(null);
+            showToast("Data absensi berhasil diperbarui!");
+          };
+
+          const handleDownloadLaporan = () => {
+            showToast("Menyiapkan dokumen...");
+            setTimeout(() => {
+              const element = document.createElement("a");
+              const file = new Blob(["LAPORAN TAHFIZH ATHAYA\n\nData Laporan Kelas telah diexport dalam format dokumen."], {type: 'text/plain'});
+              element.href = URL.createObjectURL(file);
+              element.download = "Laporan_Tahfizh_Guru.txt";
+              document.body.appendChild(element);
+              element.click();
+              document.body.removeChild(element);
+              showToast("File Laporan (PDF/Word) berhasil diunduh ke perangkat Anda!");
+            }, 1000);
+          };
+
+          return (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* MODAL EDIT GURU */}
+              {modalConfig && (
+                <Modal title={modalConfig.title} onClose={() => setModalConfig(null)}>
+                  {modalConfig.type === 'edit_setoran' && (
+                    <form onSubmit={handleEditSetoran} className="space-y-4">
+                      <div><label className="text-xs font-bold text-slate-500">Detail (Juz/Surah)</label><input name="detail" defaultValue={modalConfig.payload.detail} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required/></div>
+                      <div><label className="text-xs font-bold text-slate-500">Total Halaman</label><input name="halaman" type="number" step="0.5" defaultValue={modalConfig.payload.halaman} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required/></div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Status Capaian</label>
+                        <select name="status" defaultValue={modalConfig.payload.status} className="w-full bg-slate-50 border p-3 rounded-xl mt-1">
+                          <option>Maqbul</option>
+                          <option>Mardud</option>
+                        </select>
+                      </div>
+                      <div><label className="text-xs font-bold text-slate-500">Evaluasi Guru</label><input name="evaluasi" defaultValue={modalConfig.payload.evaluasi} className="w-full bg-slate-50 border p-3 rounded-xl mt-1"/></div>
+                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition">Simpan Perubahan</button>
+                    </form>
+                  )}
+
+                  {modalConfig.type === 'edit_absensi' && (
+                    <form onSubmit={handleEditAbsensi} className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Status Kehadiran</label>
+                        <select name="status" defaultValue={modalConfig.payload.status} className="w-full bg-slate-50 border p-3 rounded-xl mt-1">
+                          <option>Hadir</option>
+                          <option>Hadir Tanpa Setoran</option>
+                          <option>Sakit</option>
+                          <option>Izin</option>
+                          <option>Alpha</option>
+                        </select>
+                      </div>
+                      <div><label className="text-xs font-bold text-slate-500">Keterangan (Opsional)</label><input name="note" defaultValue={modalConfig.payload.note} className="w-full bg-slate-50 border p-3 rounded-xl mt-1"/></div>
+                      <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition">Simpan Perubahan</button>
+                    </form>
+                  )}
+
+                  {modalConfig.type === 'delete_setoran' && (
+                    <form onSubmit={(e) => { e.preventDefault(); setLogsList(logsList.filter(l => l.id !== modalConfig.payload.id)); setModalConfig(null); showToast("Riwayat setoran dihapus!"); }} className="space-y-4">
+                      <p className="text-red-600 font-medium mb-4">Apakah Anda yakin ingin menghapus riwayat setoran ini secara permanen?</p>
+                      <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition">Ya, Hapus Setoran</button>
+                    </form>
+                  )}
+
+                  {modalConfig.type === 'delete_absensi' && (
+                    <form onSubmit={(e) => { e.preventDefault(); setAbsensiLogs(absensiLogs.filter(l => l.id !== modalConfig.payload.id)); setModalConfig(null); showToast("Riwayat absensi dihapus!"); }} className="space-y-4">
+                      <p className="text-red-600 font-medium mb-4">Apakah Anda yakin ingin menghapus data absensi ini secara permanen?</p>
+                      <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition">Ya, Hapus Absensi</button>
+                    </form>
+                  )}
+                </Modal>
+              )}
+
+              <div className="xl:col-span-2 space-y-6">
+                <div className="bg-gradient-to-r from-emerald-700 to-emerald-600 rounded-3xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
+                  <BookOpen size={180} className="absolute right-0 bottom-0 transform translate-x-8 translate-y-8 opacity-10" />
+                  <h2 className="text-2xl md:text-3xl font-extrabold mb-1 relative z-10">{greeting}</h2>
+                  <p className="text-emerald-100 relative z-10 font-medium mb-6">{prayer}</p>
+                </div>
+
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 border-b pb-4 gap-4">
+                    <h3 className="font-extrabold text-slate-800 flex items-center gap-3 text-xl">
+                      <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600"><Save size={20} /></div> Input Form Guru
+                    </h3>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                      <button onClick={() => setActiveForm('setoran')} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeForm === 'setoran' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>Setoran</button>
+                      <button onClick={() => setActiveForm('absensi')} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeForm === 'absensi' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>Absensi</button>
+                    </div>
+                  </div>
+                  
+                  {activeForm === 'setoran' ? (
+                    <form onSubmit={handleSubmitSetoran} className="space-y-5 animate-in fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Pilih Santri</label>
+                          <select value={form.santriId} onChange={e => setForm({...form, santriId: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                            {santriList.map(s => <option key={s.id} value={s.id}>{s.nama} (Kls {s.kelas})</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Periode Input</label>
+                          <select value={form.periode} onChange={e => setForm({...form, periode: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                            <option>Harian</option><option>Pekanan</option><option>Bulanan</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Tipe Setoran</label>
+                        <select value={form.tipe} onChange={e => setForm({...form, tipe: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                          <option>Ziyadah</option><option>Murajaah</option><option>Juziyyah</option><option>Ujian Marhalah</option>
+                        </select>
+                      </div>
+                      
+                      {!['Ujian Marhalah'].includes(form.tipe) && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Juz</label>
+                            <select value={form.juz} onChange={e => setForm({...form, juz: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                              {[...Array(30)].map((_, i) => <option key={i+1} value={i+1}>Juz {i+1}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Total Halaman</label>
+                            <input type="number" step="0.5" placeholder="Masukkan total halaman" value={form.halaman} onChange={e => setForm({...form, halaman: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-medium outline-none" required />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                         <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Kualitas Setoran</label>
+                         <div className="flex gap-3">
+                            <button type="button" onClick={() => setForm({...form, status: 'Maqbul'})} className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all ${form.status === 'Maqbul' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-gray-200 text-slate-400'}`}>Maqbul (Diterima)</button>
+                            <button type="button" onClick={() => setForm({...form, status: 'Mardud'})} className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all ${form.status === 'Mardud' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-gray-200 text-slate-400'}`}>Mardud (Ulangi)</button>
+                         </div>
+                      </div>
+
+                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-4 rounded-xl mt-4 transition-all shadow-lg text-lg">Simpan Setoran</button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleSubmitAbsensi} className="space-y-5 animate-in fade-in">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Pilih Santri</label>
+                        <select value={absenForm.santriId} onChange={e => setAbsenForm({...absenForm, santriId: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                          {santriList.map(s => <option key={s.id} value={s.id}>{s.nama} (Kls {s.kelas})</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Sesi Halaqoh</label>
+                          <select value={absenForm.sessionId} onChange={e => setAbsenForm({...absenForm, sessionId: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                            {absensiSessions.map(s => <option key={s.id} value={s.id}>{s.kode} - {s.nama}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Status Kehadiran</label>
+                          <select value={absenForm.status} onChange={e => setAbsenForm({...absenForm, status: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-semibold outline-none">
+                            <option>Hadir</option><option>Hadir Tanpa Setoran</option><option>Sakit</option><option>Izin</option><option>Alpha</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Keterangan (Opsional)</label>
+                        <input type="text" placeholder="Misal: Sakit 2 hari di asrama..." value={absenForm.note} onChange={e => setAbsenForm({...absenForm, note: e.target.value})} className="w-full bg-slate-50 border border-gray-200 rounded-xl p-3.5 text-slate-800 font-medium outline-none" />
+                      </div>
+
+                      <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 rounded-xl mt-4 transition-all shadow-lg text-lg">Simpan Absensi</button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col h-[500px] xl:h-auto">
+                <div className="flex justify-between items-center mb-4 border-b pb-3">
+                  <h3 className="font-extrabold text-slate-800 text-lg">Riwayat Input Terakhir</h3>
+                  <button onClick={handleDownloadLaporan} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
+                    <Download size={14} /> Unduh Laporan
+                  </button>
+                </div>
+                <div className="overflow-y-auto flex-1 space-y-3 hide-scrollbar">
+                  {logsList.length === 0 && (absensiLogs || []).length === 0 && <p className="text-sm text-slate-500 text-center py-4">Belum ada input hari ini.</p>}
+                  
+                  {(absensiLogs || []).map(log => {
+                     const s = santriList.find(x => x.id === log.santriId);
+                     return (
+                       <div key={log.id} className="p-3 border border-gray-100 rounded-xl bg-blue-50 flex items-center justify-between">
+                         <div>
+                           <p className="font-bold text-slate-800 text-sm">{s ? s.nama : 'Santri Dihapus'}</p>
+                           <p className="text-xs text-slate-500 mt-0.5">{log.detail} • <span className="font-semibold">{log.status}</span></p>
+                         </div>
+                         <div className="flex flex-col items-end gap-2">
+                           <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded">Absen</span>
+                           <div className="flex gap-2">
+                             <button type="button" onClick={() => setModalConfig({type: 'edit_absensi', title: 'Edit Absensi', payload: log})} className="text-blue-500 hover:bg-blue-100 p-1 rounded transition"><Edit size={14} /></button>
+                             <button type="button" onClick={() => setModalConfig({type: 'delete_absensi', title: 'Hapus Absensi', payload: log})} className="text-red-500 hover:bg-red-100 p-1 rounded transition"><Trash2 size={14} /></button>
+                           </div>
+                         </div>
+                       </div>
+                     )
+                  })}
+
+                  {logsList.map(log => {
+                     const s = santriList.find(x => x.id === log.santriId);
+                     return (
+                       <div key={log.id} className="p-3 border border-gray-100 rounded-xl bg-slate-50 flex items-center justify-between">
+                         <div>
+                           <p className="font-bold text-slate-800 text-sm">{s ? s.nama : 'Santri Dihapus'}</p>
+                           <p className="text-xs text-slate-500 mt-0.5">{log.tipe} • {log.detail}</p>
+                         </div>
+                         <div className="flex flex-col items-end gap-2">
+                           <div className="flex items-center gap-1 mb-1">
+                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${log.status === 'Maqbul' ? 'text-emerald-700 bg-emerald-100' : 'text-red-700 bg-red-100'}`}>{log.status}</span>
+                           </div>
+                           <div className="flex gap-2">
+                             <button type="button" onClick={() => setModalConfig({type: 'edit_setoran', title: 'Edit Setoran', payload: log})} className="text-blue-500 hover:bg-blue-100 p-1 rounded transition"><Edit size={14} /></button>
+                             <button type="button" onClick={() => setModalConfig({type: 'delete_setoran', title: 'Hapus Setoran', payload: log})} className="text-red-500 hover:bg-red-100 p-1 rounded transition"><Trash2 size={14} /></button>
+                           </div>
+                         </div>
+                       </div>
+                     )
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function AdminDashboard({ santriList, logsList, performLabels, setPerformLabels }) {
+          const [isEditingLabels, setIsEditingLabels] = useState(false);
+          const [tempLabels, setTempLabels] = useState(performLabels);
+
+          const kls7 = santriList.filter(s => s.kelas === '7');
+          const kls8 = santriList.filter(s => s.kelas === '8');
+          const kls9 = santriList.filter(s => s.kelas === '9');
+
+          const renderClassPerform = (klsName, count, targetTahunan, listSantri) => {
+            let melampaui = 0, mencapai = 0, belum = 0;
+            listSantri.forEach(s => {
+              const c = getCapaianJuz(s.id, logsList);
+              if (c > targetTahunan) melampaui++;
+              else if (c >= targetTahunan) mencapai++;
+              else belum++;
+            });
+            const tTotal = count || 1;
+            const pMel = Math.round((melampaui / tTotal) * 100);
+            const pMen = Math.round((mencapai / tTotal) * 100);
+            const pBel = Math.round((belum / tTotal) * 100);
+
+            return (
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mt-4">
+                <h4 className="font-bold text-slate-800 mb-3 border-b pb-2">Performa Kelas {klsName} (Total: {count} Anak)</h4>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                      {isEditingLabels ? <input className="border-b outline-none border-gray-300 w-1/2" value={tempLabels.tinggi} onChange={e=>setTempLabels({...tempLabels, tinggi: e.target.value})} /> : <span>{performLabels.tinggi}</span>}
+                      <span className="text-blue-600">{pMel}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-blue-500 h-full rounded-full transition-all duration-1000" style={{width: `${pMel}%`}}></div></div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                      {isEditingLabels ? <input className="border-b outline-none border-gray-300 w-1/2" value={tempLabels.sedang} onChange={e=>setTempLabels({...tempLabels, sedang: e.target.value})} /> : <span>{performLabels.sedang}</span>}
+                      <span className="text-emerald-600">{pMen}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{width: `${pMen}%`}}></div></div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                      {isEditingLabels ? <input className="border-b outline-none border-gray-300 w-1/2" value={tempLabels.rendah} onChange={e=>setTempLabels({...tempLabels, rendah: e.target.value})} /> : <span>{performLabels.rendah}</span>}
+                      <span className="text-orange-500">{pBel}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-orange-400 h-full rounded-full transition-all duration-1000" style={{width: `${pBel}%`}}></div></div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                <h2 className="text-3xl font-extrabold mb-2 relative z-10">Admin Control Center</h2>
+                <p className="text-slate-400 mb-8 relative z-10">Ringkasan Sistem Athaya Manajemen Tahfizh.</p>
+                <div className="grid grid-cols-2 gap-4 relative z-10">
+                  <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Total Santri Aktif</p>
+                    <p className="text-3xl font-bold">{santriList.length}</p>
+                  </div>
+                  <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Status Database</p>
+                    <p className="text-3xl font-bold text-emerald-400">Sinkron</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                   <div className="flex justify-between items-center mb-2">
+                     <h3 className="font-extrabold text-slate-800 text-xl flex items-center gap-2"><Users size={24} className="text-blue-500"/> Performa Angkatan</h3>
+                     {isEditingLabels ? (
+                       <button onClick={() => { setPerformLabels(tempLabels); setIsEditingLabels(false); }} className="text-emerald-600"><CheckCircle size={20} /></button>
+                     ) : (
+                       <button onClick={() => setIsEditingLabels(true)} className="text-slate-400 hover:text-emerald-600"><Edit size={16} /></button>
+                     )}
+                   </div>
+                   <p className="text-sm text-slate-500">Statistik pencapaian target hafalan real-time per kelas.</p>
+                   {renderClassPerform('7', kls7.length, 5, kls7)}
+                   {renderClassPerform('8', kls8.length, 10, kls8)}
+                   {renderClassPerform('9', kls9.length, 15, kls9)}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function DataManagement({ role, showToast, marqueeText, setMarqueeText, santriList, setSantriList, halaqohList, setHalaqohList, musyrifList, setMusyrifList, absensiSessions, setAbsensiSessions }) {
+          const [modalConfig, setModalConfig] = useState(null); 
+          const [selectedSantriPhoto, setSelectedSantriPhoto] = useState(santriList[0]?.id || '');
+          const [localMarquee, setLocalMarquee] = useState(marqueeText);
+          const [previewPhoto, setPreviewPhoto] = useState(null);
+          const [newMusyrif, setNewMusyrif] = useState('');
+
+          const handlePhotoSelect = (e) => {
+            if (e.target.files && e.target.files[0]) {
+              const imgUrl = URL.createObjectURL(e.target.files[0]);
+              setPreviewPhoto(imgUrl);
+            }
+          };
+
+          const handlePhotoSave = () => {
+            if (previewPhoto) {
+              setSantriList(santriList.map(s => s.id === selectedSantriPhoto ? { ...s, photo: previewPhoto } : s));
+              setPreviewPhoto(null);
+              showToast("Foto profil tersimpan dan tersinkron otomatis ke seluruh aplikasi!");
+            } else {
+              showToast("Silakan pilih gambar terlebih dahulu.");
+            }
+          };
+
+          const handleMarqueeSave = (e) => {
+            e.preventDefault();
+            setMarqueeText(localMarquee);
+            showToast("Papan informasi berhasil diperbarui secara langsung!");
+          };
+
+          const executeModalAction = (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            if (modalConfig.type === 'add_santri') { setSantriList([...santriList, { id: 'S' + Date.now().toString().slice(-3), photo: null, capaianHariIni: 0, ...data }]); showToast("Santri berhasil ditambahkan!"); }
+            if (modalConfig.type === 'edit_santri') { setSantriList(santriList.map(s => s.id === modalConfig.payload.id ? { ...s, ...data } : s)); showToast("Data Santri berhasil diperbarui!"); }
+            if (modalConfig.type === 'delete_santri') { setSantriList(santriList.filter(s => s.id !== modalConfig.payload.id)); showToast("Data Santri berhasil dihapus!"); }
+            if (modalConfig.type === 'add_halaqoh') { setHalaqohList([...halaqohList, { id: 'H' + Date.now().toString().slice(-3), ...data }]); showToast("Halaqoh berhasil ditambahkan!"); }
+            if (modalConfig.type === 'edit_halaqoh') { setHalaqohList(halaqohList.map(h => h.id === modalConfig.payload.id ? { ...h, ...data } : h)); showToast("Halaqoh berhasil diperbarui!"); }
+            if (modalConfig.type === 'delete_halaqoh') { setHalaqohList(halaqohList.filter(h => h.id !== modalConfig.payload.id)); showToast("Halaqoh berhasil dihapus!"); }
+            if (modalConfig.type === 'add_sesi') { setAbsensiSessions([...absensiSessions, { id: 'S' + Date.now().toString().slice(-3), ...data }]); showToast("Sesi Absensi berhasil ditambahkan!"); }
+            if (modalConfig.type === 'edit_sesi') { setAbsensiSessions(absensiSessions.map(s => s.id === modalConfig.payload.id ? { ...s, ...data } : s)); showToast("Sesi Absensi diperbarui!"); }
+            if (modalConfig.type === 'delete_sesi') { setAbsensiSessions(absensiSessions.filter(s => s.id !== modalConfig.payload.id)); showToast("Sesi dihapus!"); }
+            setModalConfig(null);
+          };
+
+          const getActivePhoto = () => santriList.find(s => s.id === selectedSantriPhoto)?.photo;
+
+          return (
+            <div className="space-y-6">
+              {modalConfig && (
+                <Modal title={modalConfig.title} onClose={() => setModalConfig(null)}>
+                  <form onSubmit={executeModalAction} className="space-y-4">
+                    {['add_santri', 'edit_santri'].includes(modalConfig.type) && (
+                      <>
+                        <div><label className="text-xs font-bold text-slate-500">Nama Santri/Wati</label><input name="nama" defaultValue={modalConfig.payload?.nama} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Kelas</label><input name="kelas" defaultValue={modalConfig.payload?.kelas} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Halaqoh</label><input name="halaqoh" defaultValue={modalConfig.payload?.halaqoh} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Target Hafalan Harian (Halaman)</label><input name="targetHarian" type="number" step="0.5" defaultValue={modalConfig.payload?.targetHarian || '1.0'} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                      </>
+                    )}
+                    {['add_halaqoh', 'edit_halaqoh'].includes(modalConfig.type) && (
+                      <>
+                        <div><label className="text-xs font-bold text-slate-500">Nama Halaqoh</label><input name="nama" defaultValue={modalConfig.payload?.nama} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Ustadz/ah Pengampu</label><input name="guru" defaultValue={modalConfig.payload?.guru} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                      </>
+                    )}
+                    {['add_sesi', 'edit_sesi'].includes(modalConfig.type) && (
+                      <>
+                        <div><label className="text-xs font-bold text-slate-500">Kode Sesi (Misal: H1)</label><input name="kode" defaultValue={modalConfig.payload?.kode} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Keterangan / Nama Sesi</label><input name="nama" placeholder="Misal: Halaqoh 1 Subuh" defaultValue={modalConfig.payload?.nama} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                      </>
+                    )}
+                    {['delete_santri', 'delete_halaqoh', 'delete_sesi'].includes(modalConfig.type) && (
+                      <p className="text-red-600 font-medium mb-4">Apakah Anda yakin ingin menghapus data <b>{modalConfig.payload.nama}</b> secara permanen?</p>
+                    )}
+                    <button type="submit" className={`w-full font-bold py-3.5 rounded-xl transition ${modalConfig.type.includes('delete') ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                      {modalConfig.type.includes('delete') ? 'Ya, Hapus Data' : 'Simpan Data'}
+                    </button>
+                  </form>
+                </Modal>
+              )}
+
+              {role === 'admin' && (
+                <form onSubmit={handleMarqueeSave} className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
+                   <div className="flex items-center gap-2 mb-4"><Settings size={20} className="text-orange-400" /><h3 className="font-extrabold text-orange-400 text-lg">Kontrol Papan Informasi</h3></div>
+                   <textarea value={localMarquee} onChange={(e) => setLocalMarquee(e.target.value)} className="w-full bg-black/50 border border-slate-600 rounded-xl p-3 text-sm text-white focus:border-emerald-500 h-20 mb-3" />
+                   <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-5 rounded-xl">Simpan Teks</button>
+                </form>
+              )}
+
+              {role === 'admin' && (
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                   <h3 className="font-extrabold text-slate-800 text-xl mb-6 flex items-center gap-2"><Camera size={24} className="text-emerald-600" /> Upload Foto Profil Santri</h3>
+                   <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                     <div className="w-24 h-24 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-300 overflow-hidden shrink-0">
+                       {previewPhoto ? <img src={previewPhoto} className="w-full h-full object-cover" /> : (getActivePhoto() ? <img src={getActivePhoto()} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300" size={32} />)}
+                     </div>
+                     <div className="flex-1 w-full text-center md:text-left space-y-4">
+                       <select value={selectedSantriPhoto} onChange={e => {setSelectedSantriPhoto(e.target.value); setPreviewPhoto(null);}} className="w-full md:w-1/2 bg-slate-50 border p-3 rounded-xl outline-none font-semibold">
+                         {santriList.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                       </select>
+                       <div className="flex flex-col sm:flex-row items-center gap-3">
+                         <label className="cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-3 px-5 rounded-xl border border-emerald-200 transition inline-flex items-center gap-2">
+                           <Upload size={18} /> Pilih Gambar <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                         </label>
+                         <button onClick={handlePhotoSave} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-5 rounded-xl transition shadow-md shadow-emerald-500/20">
+                           Simpan & Sinkronkan
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                </div>
+              )}
+
+              {role === 'admin' && (
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2"><Database size={24} className="text-emerald-600" /> Manajemen Halaqoh & Sesi</h2>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-700">Daftar Halaqoh</h3>
+                      <button onClick={() => setModalConfig({type: 'add_halaqoh', title: 'Tambah Halaqoh'})} className="bg-emerald-600 text-white p-2 rounded-lg text-sm font-bold flex items-center gap-1"><Plus size={16} /> Tambah</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {halaqohList.map((h) => (
+                        <div key={h.id} className="p-4 border border-gray-200 rounded-2xl bg-slate-50 flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                              <AthayaLogo size={24} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800">{h.nama}</p>
+                              <p className="text-sm font-medium text-emerald-600">Ust: {h.guru}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setModalConfig({type: 'edit_halaqoh', title: 'Edit Halaqoh', payload: h})} className="text-blue-500 bg-blue-50 p-2 rounded-lg"><Edit size={16} /></button>
+                            <button onClick={() => setModalConfig({type: 'delete_halaqoh', title: 'Hapus Halaqoh', payload: h})} className="text-red-500 bg-red-50 p-2 rounded-lg"><Trash2 size={16} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-700">Pengaturan Sesi Absensi</h3>
+                      <button onClick={() => setModalConfig({type: 'add_sesi', title: 'Tambah Sesi Absensi'})} className="bg-blue-600 text-white p-2 rounded-lg text-sm font-bold flex items-center gap-1"><Plus size={16} /> Tambah Sesi</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {absensiSessions.map((s) => (
+                        <div key={s.id} className="p-4 border border-blue-200 rounded-2xl bg-blue-50/50 flex justify-between items-center">
+                          <div><span className="bg-blue-100 text-blue-700 text-xs font-black px-2 py-1 rounded mr-2">{s.kode}</span><span className="font-bold text-slate-800 text-sm">{s.nama}</span></div>
+                          <div className="flex gap-1">
+                            <button onClick={() => setModalConfig({type: 'edit_sesi', title: 'Edit Sesi', payload: s})} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded"><Edit size={14} /></button>
+                            <button onClick={() => setModalConfig({type: 'delete_sesi', title: 'Hapus Sesi', payload: s})} className="text-red-500 hover:bg-red-100 p-1.5 rounded"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2"><Database size={24} className="text-emerald-600" /> Master Data Santri</h2>
+                  <button onClick={() => setModalConfig({type: 'add_santri', title: 'Tambah Santri'})} className="bg-emerald-600 text-white p-2.5 rounded-xl"><Plus size={20} /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {santriList.map((s) => (
+                    <div key={s.id} className="p-4 border border-gray-100 rounded-2xl bg-slate-50 flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-slate-800">{s.nama}</p>
+                        <p className="text-xs font-semibold text-slate-500 mt-1">Kls {s.kelas} • {s.halaqoh}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => setModalConfig({type: 'edit_santri', title: 'Edit Santri', payload: s})} className="text-blue-500 bg-blue-50 p-1.5 rounded-lg"><Edit size={14} /></button>
+                        <button onClick={() => setModalConfig({type: 'delete_santri', title: 'Hapus Santri', payload: s})} className="text-red-500 bg-red-50 p-1.5 rounded-lg"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function AlumniDashboard({ role, alumniList, setAlumniList, showToast }) {
+          const [modalConfig, setModalConfig] = useState(null);
+
+          const executeModalAction = (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            if (modalConfig.type === 'add_alumni') { setAlumniList([{ id: 'A' + Date.now(), ...data }, ...alumniList]); showToast("Data Alumni berhasil ditambahkan!"); }
+            if (modalConfig.type === 'edit_alumni') { setAlumniList(alumniList.map(a => a.id === modalConfig.payload.id ? { ...a, ...data } : a)); showToast("Data Alumni berhasil diperbarui!"); }
+            if (modalConfig.type === 'delete_alumni') { setAlumniList(alumniList.filter(a => a.id !== modalConfig.payload.id)); showToast("Data Alumni berhasil dihapus!"); }
+            setModalConfig(null);
+          };
+
+          return (
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+              {modalConfig && (
+                <Modal title={modalConfig.title} onClose={() => setModalConfig(null)}>
+                  <form onSubmit={executeModalAction} className="space-y-4">
+                    {['add_alumni', 'edit_alumni'].includes(modalConfig.type) && (
+                      <>
+                        <div><label className="text-xs font-bold text-slate-500">Nama Alumni</label><input name="nama" defaultValue={modalConfig.payload?.nama} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Asal Daerah</label><input name="asal" defaultValue={modalConfig.payload?.asal} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Pencapaian Hafalan</label><input name="capaian" placeholder="Misal: 30 Juz Mutqin" defaultValue={modalConfig.payload?.capaian} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Tahun Lulus</label><input name="tahun" type="number" defaultValue={modalConfig.payload?.tahun || new Date().getFullYear()} className="w-full bg-slate-50 border p-3 rounded-xl mt-1" required /></div>
+                      </>
+                    )}
+                    {modalConfig.type === 'delete_alumni' && (
+                      <p className="text-red-600 font-medium mb-4">Apakah Anda yakin ingin menghapus data <b>{modalConfig.payload.nama}</b>?</p>
+                    )}
+                    <button type="submit" className={`w-full font-bold py-3.5 rounded-xl transition ${modalConfig.type === 'delete_alumni' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                      {modalConfig.type === 'delete_alumni' ? 'Hapus Data' : 'Simpan Data'}
+                    </button>
+                  </form>
+                </Modal>
+              )}
+
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2"><GraduationCap size={28} className="text-emerald-600" /> Data Alumni</h2>
+                  <p className="text-sm text-slate-500 mt-1">Rekam jejak capaian hafalan lulusan Athaya Tahfizh.</p>
+                </div>
+                {role === 'admin' && (
+                  <button onClick={() => setModalConfig({type: 'add_alumni', title: 'Tambah Data Alumni'})} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 transition shadow-md shadow-emerald-500/20">
+                    <Plus size={18} /> <span className="hidden md:inline">Tambah Alumni</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {alumniList.map((alumni) => (
+                  <div key={alumni.id} className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 hover:shadow-md transition group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-emerald-100 to-transparent rounded-bl-full z-0"></div>
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600"><User size={24} /></div>
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-lg leading-tight">{alumni.nama}</h3>
+                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-1"><MapPin size={12} /> {alumni.asal}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-3 mb-4">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Capaian Akhir</p>
+                        <p className="font-extrabold text-emerald-600">{alumni.capaian}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">Lulus {alumni.tahun}</span>
+                        {role === 'admin' && (
+                          <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setModalConfig({type: 'edit_alumni', title: 'Edit Data Alumni', payload: alumni})} className="text-blue-500 hover:bg-blue-50 p-1.5 rounded"><Edit size={16} /></button>
+                            <button onClick={() => setModalConfig({type: 'delete_alumni', title: 'Hapus Data Alumni', payload: alumni})} className="text-red-500 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16} /></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        function StatsDashboard({ role, logsList, absensiLogs, santri, performLabels }) {
+          const syncedJuz = santri ? getCapaianJuz(santri.id, logsList).toFixed(2) : 0;
+          const capaianJuz = parseFloat(syncedJuz);
+          const progress1 = Math.min((capaianJuz / 5) * 100, 100);
+
+          const getBulananData = () => {
+            const data = Array(12).fill(0); 
+            if (santri) {
+              logsList.forEach(log => {
+                if (log.santriId === santri.id && log.tipe === 'Ziyadah' && log.status === 'Maqbul') {
+                  const month = new Date(log.tanggal).getMonth(); 
+                  data[month] += (parseFloat(log.halaman) || 0);
+                }
+              });
+            }
+            const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+            return data.map((hal, i) => ({ label: labels[i], val: Math.min((hal / 10) * 100, 100) }));
+          };
+          const bulananData = getBulananData();
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                <h2 className="text-2xl font-extrabold text-slate-800 mb-8">Analytics Capaian (Real-Time)</h2>
+                <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100">
+                  <div className="flex justify-between items-end mb-2">
+                    <div><p className="text-xs text-emerald-600 font-bold uppercase tracking-widest mb-1">Target 1 Tahun (Kelas 7)</p><p className="text-xl font-bold text-slate-800">{capaianJuz} / 5 Juz</p></div>
+                    <p className="text-2xl font-extrabold text-emerald-600">{Math.round(progress1)}%</p>
+                  </div>
+                  <div className="w-full bg-emerald-200/50 rounded-full h-3 overflow-hidden"><div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${progress1}%` }}></div></div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                <h2 className="text-xl font-extrabold text-slate-800 mb-8">Capaian Bulanan</h2>
+                <div className="overflow-x-auto hide-scrollbar pb-4">
+                  <div className="h-64 flex items-end gap-2 sm:gap-4 min-w-[600px]">
+                    {bulananData.map((item, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-3">
+                        <div className="w-full bg-slate-50 rounded-t-xl relative flex items-end justify-center h-full">
+                           <div className={`w-full ${item.val >= 80 ? 'bg-emerald-500' : item.val > 0 ? 'bg-yellow-400' : 'bg-slate-200'} rounded-t-xl transition-all duration-1000`} style={{height: `${item.val}%`}}></div>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Analytics Absensi Khusus Guru/Admin */}
+              {['guru', 'admin'].includes(role) && (
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+                  <h2 className="text-xl font-extrabold text-slate-800 mb-6">Analytics Kehadiran Sesi</h2>
+                  <div className="space-y-5">
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                        <span>Pekan Ini (Target 17 Sesi)</span>
+                        <span className="text-emerald-600">{absensiLogs.length} Kehadiran</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min((absensiLogs.length / 17)*100, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // Render Aplikasi
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
