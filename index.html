@@ -1,1 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athaya Manajemen Tahfizh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+        body { font-family: 'Nunito', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+    </style>
+</head>
+<body class="bg-emerald-900 text-white antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createClient } = supabase; // [cite: 229]
+
+        // [cite: 229, 233] Hubungkan ke Supabase (Ganti URL & Key Anda)
+        const supabaseUrl = 'https://izirjrctjjpzundsagfx.supabase.co/rest/v1/';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aXJqcmN0ampwenVuZHNhZ2Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODIzMjAsImV4cCI6MjA5MzE1ODMyMH0.5o4Vl0S5VNm1c8_zuINAocqw5ICyuE_78n4d9gs-mmo';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        function App() {
+            const [santriList, setSantriList] = useState([]);
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+            // [cite: 231] Sinkronisasi Data Real-Time
+            const fetchData = async () => {
+                const { data } = await supabaseClient.from('santri').select('*');
+                if (data) setSantriList(data);
+            };
+
+            useEffect(() => { fetchData(); }, []);
+
+            return (
+                <div className="min-h-screen p-8 flex flex-col items-center justify-center">
+                    <div className="glass p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
+                        <h1 className="text-3xl font-black mb-4">Athaya Tahfizh</h1>
+                        <p className="text-emerald-200 mb-8">Sistem Manajemen Terkoneksi Supabase</p>
+                        
+                        <div className="space-y-4">
+                            {santriList.length > 0 ? (
+                                santriList.map(s => (
+                                    <div key={s.santri_id} className="bg-white/10 p-4 rounded-xl text-left">
+                                        <p className="font-bold">{s.nama_santri}</p>
+                                        <p className="text-xs opacity-60">Kls {s.kelas} • Target {s.target_total} Juz</p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm opacity-50 italic">Menunggu data dari Supabase...</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
